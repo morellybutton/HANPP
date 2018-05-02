@@ -22,7 +22,11 @@ for(i in 1:length(plts)){
   npp.litter <- read.csv(paste0(getwd(),"/NPP/Litter Data/FLF_",gsub(" ","",plts[i]),"_output.csv"))
   npp.qflitter <- read.csv(paste0(getwd(),"/NPP/FineLitterFall/FLFQ_",gsub(" ","",plts[i]),"_output.csv"))
   
-  if(length(grep("FP",plts[i]))==0) { npp.yield<-read.csv(paste0(getwd(),"/NPP/Total/",gsub(" ","",plts[i]),"_NPPcocoapods.csv")); npp.yield$date <- as.Date(npp.yield$date) } else npp.yield <- NA
+  if(length(grep("FP",plts[i]))==0) { npp.yield<-read.csv(paste0(getwd(),"/NPP/Total/",gsub(" ","",plts[i]),"_NPPcocoapods.csv")); npp.yield$date <- as.Date(npp.yield$date) ;
+  npp.yield <- npp.yield %>% group_by(plot,date) %>% summarise(TShell_MgCperha=sum(TShell_MgCperha,na.rm=T),TBean_MgCperha=sum(TBean_MgCperha,na.rm=T),TShell_MgCperhase=sum(TShell_MgCperhase,na.rm=T),
+                                                               TBean_MgCperhase=sum(TBean_MgCperhase,na.rm=T),CocoaDensity=sum(no.trees,na.rm=T))
+  } else npp.yield <- NA
+  
   
   #collect stock data
   stck.qflitter<- npp.qflitter[1,]
@@ -34,7 +38,11 @@ for(i in 1:length(plts)){
   stck.roots<-npp.roots[1,]
   npp.roots[1,2:8]<-NA
   
-  stck.agb<-npp.dendro %>% select(year,cocoa,total_agC)
+  stck.agb <- npp.dendro %>% group_by(cocoa,year) %>% mutate(total_agC=sum(total_agC,total_agC_s,na.rm=T)) %>% select(year,cocoa,total_agC) %>% ungroup() %>% 
+    mutate(cocoa=replace(cocoa,cocoa==1,"cocoa")) %>% mutate(cocoa=replace(cocoa,cocoa==0,"shade")) %>% 
+    spread(key="cocoa",value="total_agC") 
+  
+  if(length(grep("FP",plts[i]))==0) stck.agb <- stck.agb %>% rename(cocoa_agC=cocoa,shade_agC=shade) else stck.agb <- stck.agb %>% rename(shade_agC=shade) %>% mutate(cocoa_agC=0)
   
     #use litter as base to add onto
   npp.combo <- data_frame(year=npp.litter$Year, month= npp.litter$Month, totflfAs = npp.litter$totflfAs, totflfAsstd = npp.litter$totflfAsstd, seedsfAs = npp.litter$seedsfAs, seedsfAsstd = npp.litter$seedsfAsstd,
@@ -57,10 +65,16 @@ for(i in 1:length(plts)){
   
   #fill in months between quarterly measures
   #npp.combo <- npp.combo %>% fill(monthlyNPProot,monthlyNPProot.se, .direction = "up")
+
   
   #npp.dendro <- data_frame(year = npp.dendro$year, month = npp.dendro$month, nppacw_month.cocoa = npp.dendro$nppacw_month.cocoa, nppacw_month.cocoa.se = npp.dendro$nppacw_month.cocoa.se, nppacw_month.shade = npp.dendro$nppacw_month.shade, nppacw_month.shade.se= npp.dendro$nppacw_month.shade.se)
-  if(length(grep("FP",plts[i]))==0) npp.dendro <- data_frame(year=npp.dendro$year[npp.dendro$cocoa==0], nppacw_monthly.cocoa = npp.dendro$growth_agC[npp.dendro$cocoa==1]/12, nppacw_monthly.shade=npp.dendro$growth_agC[npp.dendro$cocoa==0]/12) else npp.dendro <- data_frame(year=npp.dendro$year[npp.dendro$cocoa==0], nppacw_monthly.cocoa = NA, nppacw_monthly.shade=npp.dendro$growth_agC[npp.dendro$cocoa==0]/12)
-  #npp.combo <- left_join(npp.combo,npp.dendro, by = c("year","month"))
+  
+  if(length(grep("FP",plts[i]))==0) npp.dendro <- data_frame(year=npp.dendro$year[npp.dendro$cocoa==0], nppacw_monthly.cocoa = npp.dendro$growth_agC[npp.dendro$cocoa==1]/12, nppacw_monthly.shade=npp.dendro$growth_agC[npp.dendro$cocoa==0]/12) %>% 
+    mutate(nppacw_monthly.cocoa=replace(nppacw_monthly.cocoa,nppacw_monthly.cocoa<0,0)) else 
+    npp.dendro <- data_frame(year=npp.dendro$year[npp.dendro$cocoa==0], nppacw_monthly.cocoa = NA, nppacw_monthly.shade=npp.dendro$growth_agC[npp.dendro$cocoa==0]/12)  %>% 
+    mutate(nppacw_monthly.cocoa=replace(nppacw_monthly.cocoa,nppacw_monthly.cocoa<0,0))
+   
+ #npp.combo <- left_join(npp.combo,npp.dendro, by = c("year","month"))
   npp.combo <- left_join(npp.combo,npp.dendro, by = c("year"))
   
   #fill in months between quarterly measures (remove "stock measures" later)
@@ -74,8 +88,7 @@ for(i in 1:length(plts)){
   
   npp.combo <- npp.combo %>% mutate(date=as.Date(paste0("01-",month,"-",year),format="%d-%m-%Y"))
   
-  #####NEED TO UPDATE SHELL/BEAN CARBON ESTIMATES
-  if(length(grep("FP",plts[i]))==0) npp.combo <- left_join(npp.combo,npp.yield %>% select(date,TShell_MgCperha,TShell_MgCperhase,TBean_MgCperha,TBean_MgCperhase),by="date") else npp.combo <- npp.combo %>% mutate(TShell_MgCperha=NA,TShell_MgCperhase=NA,TBean_MgCperha=NA,TBean_MgCperhase=NA)
+  if(length(grep("FP",plts[i]))==0) npp.combo <- left_join(npp.combo,npp.yield %>% select(date,TShell_MgCperha,TShell_MgCperhase,TBean_MgCperha,TBean_MgCperhase,CocoaDensity),by="date") else npp.combo <- npp.combo %>% mutate(TShell_MgCperha=NA,TShell_MgCperhase=NA,TBean_MgCperha=NA,TBean_MgCperhase=NA,CocoaDensity=0)
   #remove measures for non-heavy crop months, why?
   #npp.combo <- npp.combo %>% mutate(TShell_MgCperha=replace(TShell_MgCperha,month>6&month<10,NA),TBean_MgCperha=replace(TBean_MgCperha,month>6&month<10,NA))
   
@@ -97,8 +110,8 @@ for(i in 1:length(plts)){
                                       branchflfAs=mean(branchflfAs,na.rm=T),branchflfAsstd=mean(branchflfAsstd,na.rm=T),NPProot=mean(monthlyNPProot,na.rm=T),
                                       NPProot.se=mean(monthlyNPProot.se,na.rm=T),stem.cocoa=mean(nppacw_monthly.cocoa,na.rm=T),
                                       stem.shade=mean(nppacw_monthly.shade,na.rm=T),cwd=mean(NPPCWDac,na.rm=T),cwd.se=mean(NPPCWDac.se,na.rm=T),
-                                      TShell_MgCperha=median(TShell_MgCperha,na.rm=T),TShell_MgCperhase=median(TShell_MgCperhase,na.rm=T),TBean_MgCperha=median(TBean_MgCperha,na.rm=T),
-                                      TBean_MgCperhase=median(TBean_MgCperhase,na.rm=T))
+                                      TShell_MgCperha=mean(TShell_MgCperha,na.rm=T),TShell_MgCperhase=mean(TShell_MgCperhase,na.rm=T),TBean_MgCperha=mean(TBean_MgCperha,na.rm=T),
+                                      TBean_MgCperhase=mean(TBean_MgCperhase,na.rm=T),CocoaDensity=mean(CocoaDensity,na.rm=T))
   npp_summ$plot <- gsub(" ","",plts[i])
   #to_summ[[i]]<-npp_sum
   npp.combo <- npp.combo %>% group_by(month,year) %>% mutate(reprod.shade=sum(seedsfAs,fruitflfAs,flowerflfAs,na.rm=T),reprod.shade.sd=sum(seedsfAsstd,fruitflfAsstd,flowerflfAsstd,na.rm=T),
@@ -109,7 +122,7 @@ for(i in 1:length(plts)){
                                                                                                 twigs=mean(branchflfAs,na.rm=T)*12,twigs.sd=mean(branchflfAsstd,na.rm=T)*12,canopy.cocoa=mean(leafflfcAs,na.rm=T)*12,canopy.cocoa.sd=mean(leafflfAsstd,na.rm=T)*12,branches=mean(NPPCWDac,na.rm=T)*12,
                                                                                                 branches.sd=mean(NPPCWDac.se,na.rm=T)*12,roots=mean(monthlyNPProot,na.rm=T)*12,roots.sd=mean(monthlyNPProot.se,na.rm=T)*12,wood.shade=mean(nppacw_monthly.shade,na.rm=T)*1.25*12,
                                                                                                 wood.cocoa=mean(nppacw_monthly.cocoa,na.rm=T)*1.25*12,reprod.cocoa=sum(reprod.cocoa,na.rm=T),reprod.cocoa.sd=sum(reprod.cocoa.sd,na.rm=T),cocoa.harv=sum(TBean_MgCperha,na.rm=T),
-                                                                                                cocoa.harv.sd=sum(TBean_MgCperhase,na.rm=T),reprod.shell=mean(TShell_MgCperha,na.rm=T),reprod.shell.sd=mean(TShell_MgCperhase,na.rm=T)) %>% 
+                                                                                                cocoa.harv.sd=sum(TBean_MgCperhase,na.rm=T),reprod.shell=mean(TShell_MgCperha,na.rm=T),reprod.shell.sd=mean(TShell_MgCperhase,na.rm=T),cocoadensity=mean(CocoaDensity,na.rm=T)) %>% 
     mutate(prop.canopy.cocoa=canopy.cocoa/sum(canopy.cocoa,canopy.shade),prop.wood.cocoa=wood.cocoa/sum(wood.shade,wood.cocoa,na.rm=T)) 
   npp.total <- npp.total %>% mutate(prop.canopy.cocoa=replace(prop.canopy.cocoa,is.na(prop.canopy.cocoa),0),prop.wood.cocoa=replace(prop.wood.cocoa,is.na(prop.wood.cocoa),0)) %>% 
     mutate(canopy.shade2=canopy.shade+twigs*(1-prop.canopy.cocoa),canopy.shade.sd2=canopy.shade.sd+twigs.sd*(1-prop.canopy.cocoa),canopy.cocoa2=canopy.cocoa+twigs*prop.canopy.cocoa,canopy.cocoa.sd2=canopy.cocoa.sd+twigs.sd*prop.canopy.cocoa,
@@ -125,7 +138,7 @@ for(i in 1:length(plts)){
                                     twigs=branchflfAs*12,twigs.sd=branchflfAsstd*12,canopy.cocoa=leafflfcAs*12,canopy.cocoa.sd=leafflfAsstd*12,branches=cwd*12,
                                     branches.sd=cwd.se*12,roots=NPProot*12,roots.sd=NPProot.se*12,wood.shade=stem.shade*1.25*12,
                                     wood.cocoa=stem.cocoa*1.25*12,reprod.cocoa=reprod.cocoa*12,reprod.cocoa.sd=reprod.cocoa.sd*12,cocoa.harv=TBean_MgCperha*12,
-                                    cocoa.harv.sd=TBean_MgCperhase*12,reprod.shell=TShell_MgCperha*12,reprod.shell.sd=TShell_MgCperhase*12) %>% 
+                                    cocoa.harv.sd=TBean_MgCperhase*12,reprod.shell=TShell_MgCperha*12,reprod.shell.sd=TShell_MgCperhase*12,cocoadensity=mean(CocoaDensity,na.rm=T)) %>% 
     mutate(prop.canopy.cocoa=canopy.cocoa/sum(canopy.cocoa,canopy.shade),prop.wood.cocoa=wood.cocoa/sum(wood.shade,wood.cocoa,na.rm=T)) 
   npp_total <- npp_total %>% mutate(prop.canopy.cocoa=replace(prop.canopy.cocoa,is.na(prop.canopy.cocoa),0),prop.wood.cocoa=replace(prop.wood.cocoa,is.na(prop.wood.cocoa),0)) %>% 
     mutate(canopy.shade2=canopy.shade+twigs*(1-prop.canopy.cocoa),canopy.shade.sd2=canopy.shade.sd+twigs.sd*(1-prop.canopy.cocoa),canopy.cocoa2=canopy.cocoa+twigs*prop.canopy.cocoa,canopy.cocoa.sd2=canopy.cocoa.sd+twigs.sd*prop.canopy.cocoa,
@@ -134,11 +147,12 @@ for(i in 1:length(plts)){
   npp_total$group.date<-"all.years"
   npp_total$plot_name <- gsub(" ","",plts[i])
   
-  stck.agb <- stck.agb %>% filter(year!=2014) %>%  mutate(type=ifelse(cocoa==1,"cocoa.agC","shade.agC"),group.date=ifelse(year==2015,"year1","year2")) %>% select(-cocoa) %>% spread(key="type",value="total_agC")
+  #stck.agb <- stck.agb %>% filter(year!=2014) %>%  mutate(type=ifelse(cocoa==1,"cocoa_agC","shade_agC"),group.date=ifelse(year==2015,"year1","year2")) %>% select(-cocoa) %>% spread(key="type",value="total_agC")
   
-  if(length(grep("FP",plts[i]))==1) stck.agb$cocoa.agC<-NA
   
-  npp.total <- left_join(npp.total,stck.agb, by="group.date")
+  stck.agb <- stck.agb %>% mutate(group.date="year1") %>% mutate(group.date=replace(group.date,year>2014,"year2"),group.date=replace(group.date,year>2015,"year3"))
+  
+  npp.total <- left_join(npp.total,stck.agb %>% select(group.date,cocoa_agC,shade_agC), by="group.date")
   npp.total$plot_name <- gsub(" ","",plts[i])
   
   npp.total <- bind_rows(npp.total,npp_total)
