@@ -4,6 +4,7 @@ library(tidyverse)
 library(lubridate)
 #library(reshape)
 library(gridExtra)
+library(ggpubr)
 
 setwd("/Volumes/ELDS/ECOLIMITS/Ghana/Kakum/")
 #setwd("X:/Ghana/Kakum/NPP")
@@ -47,20 +48,50 @@ h$plot_type <- factor(h$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3",
 h <- h %>% group_by(plot_name) %>% arrange(desc(category)) %>% mutate(npp.cumsum=cumsum(npp))
 
 ggplot(h,aes(x=plot_type,y=npp,fill=category))+geom_bar(stat="identity",width=.5)+                          
-  xlab("") + ylab(expression(paste("Total NPP (MgC ", ha^-1, yr^-1, ")", sep=""))) + theme_bw()+
-  theme(text = element_text(size=24)) + theme(legend.title=element_blank())+ 
+  xlab("") + ylab(expression(paste("Total NPP (MgC ", ha^-1, yr^-1, ")", sep=""))) + theme_classic()+
+  theme(text = element_text(size=18)) + theme(legend.title=element_blank())+ 
   geom_errorbar(data=h %>% filter(plot_type!="Intact Forest"&plot_type!="Logged Forest",category=="Roots (Cocoa)"),aes(x=plot_type,ymin=npp-npp.sd,ymax=npp+npp.sd),width=0.1)+
   geom_errorbar(data=h %>% filter(category=="Roots (Shade)"),aes(x=plot_type,ymin=npp.cumsum-npp.sd,ymax=npp.cumsum+npp.sd),width=0.1)+
   geom_errorbar(data=h %>% filter(plot_type!="Intact Forest"&plot_type!="Logged Forest",category=="Cocoa Pods"),aes(x=plot_type,ymin=npp.cumsum-npp.sd,ymax=npp.cumsum+npp.sd),width=0.1)+
   geom_errorbar(data=h %>% filter(plot_type!="Intact Forest"&plot_type!="Logged Forest",category=="Canopy (Cocoa)"),aes(x=plot_type,ymin=npp.cumsum-npp.sd,ymax=npp.cumsum+npp.sd),width=0.1)+
   geom_errorbar(data=h %>% filter(category=="Canopy (Shade)"),aes(x=plot_type,ymin=npp.cumsum-npp.sd,ymax=npp.cumsum+npp.sd),width=0.1)+
   #geom_hline(yintercept=16.7,linetype="dashed")+geom_hline(yintercept=14.28,linetype="dashed",color="grey")+
-  theme_classic()+theme(axis.text.x=element_text(angle = 45,hjust=1),legend.position="bottom")+ scale_fill_manual(labels=c("Canopy (Shade)","Canopy (Cocoa)","Cocoa Pods","Woody (Shade)", "Woody (Cocoa)","Roots (Shade)","Roots (Cocoa)"),
+  theme(axis.text.x=element_text(angle = 45,hjust=1),legend.position="bottom")+ scale_fill_manual(labels=c("Canopy (Shade)","Canopy (Cocoa)","Cocoa Pods","Woody (Shade)", "Woody (Cocoa)","Roots (Shade)","Roots (Cocoa)"),
                                                                                                                   values=c('darkcyan','cyan2','yellow','olivedrab4','limegreen','darkorchid1','darkorchid4'))
 #scale_fill_manual(values=c('Canopy (Shade)'='darkcyan','Canopy (Cocoa)'='yellow','Branches (Canopy)'='coral3','Branches (Cocoa)'='coral' ,'Cocoa Pods'='saddlebrown','Stem (canopy)'='olivedrab4','Stem (cocoa)'='limegreen','Roots (cocoa)'='darkorchid1','Roots (canopy)'='darkorchid4'))
 #ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/GTO-Paris/NPP_all.pdf"),height=7, width=12)
 ggsave(paste0(getwd(),"/Analysis/HANPP/NPP_all_avg.pdf"),height=7, width=12)
 ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_fig4.pdf"),height=7, width=12)
+ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_all_lines.pdf"),height=7, width=12)
+
+#make barchart of just forest plots
+h_forest<-h %>% filter(plot_type=="Intact Forest"&npp>0.1|plot_type=="Logged Forest"&npp>0.1)
+ggplot(h_forest, aes(x=plot_type,y=npp,fill=category))+geom_bar(stat="identity",width=.5)+                          
+  xlab("") + ylab(expression(paste("Total NPP (MgC ", ha^-1, yr^-1, ")", sep=""))) + theme_bw()+
+  theme(text = element_text(size=24)) + theme(legend.title=element_blank()) +
+  geom_errorbar(data=h_forest %>% filter(category=="Roots (Shade)"),aes(x=plot_type,ymin=npp.cumsum-npp.sd,ymax=npp.cumsum+npp.sd),width=0.1)+
+  geom_errorbar(data=h_forest %>% filter(category=="Canopy (Shade)"),aes(x=plot_type,ymin=npp.cumsum-npp.sd,ymax=npp.cumsum+npp.sd),width=0.1)+
+  geom_hline(yintercept=16.7,linetype="dashed")+geom_hline(yintercept=14.28,linetype="dashed",color="grey")+
+  theme_classic()+theme(axis.text.x=element_text(angle = 45,hjust=1),legend.position="bottom",legend.title = element_blank(),text=element_text(size=16)) + 
+  scale_fill_manual(labels=c("Canopy (Shade)","Woody (Shade)","Roots (Shade)"),values=c('darkcyan','olivedrab4','darkorchid1')) +
+  coord_fixed(ratio=1/5)
+ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/NPP_forest.pdf"))
+
+agC_forest<-all_plots %>% filter(group.date=="year1"&plot_name=="HMFP"|group.date=="year1"&plot_name=="KAFP") %>% select(plot_name,shade_agC) %>% gather(key="category",value="agc",-plot_name)
+agC_forest$category<-factor(agC_forest$category,levels=c("shade_agC"),labels=c("Shade Tree AGC"))
+agC_forest$plot_type <- factor(agC_forest$plot_name,levels = c( "HMFP","KAFP"),
+                        labels=c("Intact Forest","Logged Forest"))
+#young cocoa < 10 years, medium cocoa < 20 years, old cocoa > 30 years
+ggplot(agC_forest,aes(plot_type,agc,group=category)) + geom_bar(stat="identity",position="stack",aes(fill=category),width=.5)+                          
+  xlab("") + ylab(expression(paste("Aboveground Carbon (MgC ", ha^-1, ")", sep=""))) + scale_fill_grey() + theme_bw()+
+  theme(text = element_text(size=18)) + theme(legend.position="top",legend.title=element_blank())+ theme(
+    plot.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,panel.border = element_blank(),axis.text.x=element_text(angle = 45,hjust=1)
+    ,axis.line.x = element_line(color = 'black')
+    ,axis.line.y = element_line(color = 'black')) + coord_fixed(ratio=1/40)
+ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/AGC_forest.pdf"))
 
 #calculate HANPP land-use change from above estimates
 hanpp <- h %>% group_by(plot_name) %>% summarise(total=sum(npp,na.rm=T),total.sd=sum(npp.sd,na.rm=T)) %>% mutate(min=total-total.sd,max=total+total.sd)
@@ -83,7 +114,7 @@ g1<-ggplot(hanpp.luc,aes(x=category,y=npp))+geom_bar(stat="identity",width=.5)+
                           ,legend.title=element_blank(),axis.text.x=element_text(angle = 45,hjust=1))+
   geom_hline(yintercept = 100,linetype="dashed",color="light grey")+geom_text(aes(y=npp.max2,label=label_y),vjust=-.5,size=6)+
   geom_errorbar(aes(x=category,ymin=npp.min2,ymax=npp.max2),width=0.1)+
-  annotate("text",x=2.0,y=175,label="HANPP[LUC]",parse = TRUE,size=8)+annotate("text",x=3.5,y=175,label=" =",size=8)
+  annotate("text",x=2.0,y=175,label="HANPP[LUC]",parse = TRUE,size=8)+annotate("text",x=3.0,y=175,label=" =",size=8)
 
 g3<- grid.arrange(g1,g2,ncol=2)
 ggsave(paste0(getwd(),"/Analysis/HANPP/HANPP.luc_avg.pdf"),g3,height=6, width=15)
@@ -133,7 +164,7 @@ g2<-ggplot(h,aes(x=plot_type,y=hanpp,fill=category))+geom_bar(stat="identity",wi
   xlab("") + ylab(expression(paste("NPP(%)"))) + ylim(0,200) + 
   theme_classic() + theme(text = element_text(size=20),legend.position="top"
                           ,legend.title=element_blank(),axis.text.x=element_text(angle = 45,hjust=1)) +
-  annotate("text",x=2.0,y=175,label="HANPP[TOT]",parse = TRUE,size=8)+annotate("text",x=3.5,y=175,label=" =",size=8)+
+  annotate("text",x=2.0,y=175,label="HANPP[TOT]",parse = TRUE,size=8)+annotate("text",x=3.0,y=175,label=" =",size=8)+
   annotate("text",y=hlab$hanpp.all,x=hlab$plot_type,label=hlab$label_y,vjust=-.5,size=6)+
   geom_hline(yintercept = 100,linetype="dashed",color="light grey")
 ggsave(paste0(getwd(),"/Analysis/HANPP/HANPP.perc_avg.pdf"),g2,height=6, width=8)
@@ -142,6 +173,40 @@ g3<-grid.arrange(g1,g2,ncol=1)
 ggsave(paste0(getwd(),"/Analysis/HANPP/HANPP.comp_avg.pdf"),g3,height=12, width=10)
 ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_fig5.pdf",g3,height=12, width=10)
 write.csv(hanpp,paste0(getwd(),"/HANPP_perc.avg.csv"))
+
+#do again with actual HANPP values
+hanpp <- hanpp %>% group_by(plot_name) %>% mutate(hanpp.luc=hanpp$npp.total[hanpp$plot_name=="HMFP"]-npp.total,hanpp.tot=hanpp$npp.total[hanpp$plot_name=="HMFP"]-npp.background,hanpp.tot.2=npp.total-npp.background)
+hlab2<-hanpp %>% select(plot_type,npp.total,hanpp.luc,hanpp.tot,hanpp.tot.2)
+hlab2$label_y<-paste0(signif(hlab2$hanpp.luc,digits=2))
+hlab2[hlab2$label_y=="0","label_y"]<-""
+
+g1<-ggplot(hanpp,aes(x=plot_type,y=npp.total))+geom_bar(stat="identity",width=.5)+                          
+  xlab("") + ylab(expression(paste("NPP [MgC ha-1 yr-1]"))) + ylim(0,25)+scale_fill_grey() + 
+  theme_classic() + theme(text = element_text(size=18),legend.position="top"
+                          ,legend.title=element_blank(),axis.text.x=element_text(angle = 45,hjust=1))+
+  geom_hline(yintercept = hanpp$npp.total[hanpp$plot_name=="HMFP"],linetype="dashed",color="light grey")+
+  geom_text(data=hlab2,aes(y=npp.total,label=label_y),vjust=-.5,size=6)+
+  #geom_errorbar(aes(x=category,ymin=npp.min2,ymax=npp.max2),width=0.1)+
+  annotate("text",x=2.0,y=24,label="HANPP[LUC]",parse = TRUE,size=8)+annotate("text",x=3.0,y=24,label=" =",size=8)
+
+h <- hanpp %>% select(plot_name,npp.background,npp.used,npp.unused) %>% gather(key="category",value="hanpp",-plot_name)
+h$category<-factor(h$category,levels=c("npp.used","npp.unused","npp.background"),labels=c("NPP Used","NPP Unused","NPP Background"))
+h$plot_type<-factor(h$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3","HM100F3","HM500F2","HM500F3","KA500F3","KA1KF3", "HM5KF2"),
+                    labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Old Cocoa\n[5km]"))
+
+hlab2$label_y2<-paste0(signif(hlab2$hanpp.tot,digits=2)," [",signif(hlab2$hanpp.tot.2,digits=2),"]")
+hlab2[hlab2$label_y2=="0 [0]","label_y2"]<-""
+hlab2[hlab2$plot_name=="KAFP","label_y2"]<-""
+
+g2<-ggplot(h,aes(x=plot_type,y=hanpp,fill=category))+geom_bar(stat="identity",width=.5)+scale_fill_grey(start=0.8,end=0.2)+       
+  xlab("") + ylab(expression(paste("NPP [MgC ha-1 yr-1]"))) + ylim(0,25) + 
+  theme_classic() + theme(text = element_text(size=18),legend.position="top",legend.title=element_blank(),axis.text.x=element_text(angle = 45,hjust=1)) +
+  annotate("text",x=2.0,y=24,label="HANPP[TOT]",parse = TRUE,size=8)+annotate("text",x=3.0,y=24,label=" =",size=8)+
+  annotate("text",y=hlab2$npp.total,x=hlab$plot_type,label=hlab2$label_y2,vjust=-.5,size=6)+
+  geom_hline(yintercept = hanpp$npp.total[hanpp$plot_name=="HMFP"],linetype="dashed",color="light grey")
+
+g3<-grid.arrange(g1,g2,ncol=1)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP.combo.pdf",g3,height=12, width=10)
 
 #HANPP figure from Haberl
 h<-read_csv(paste0(getwd(),"/NPP/HANPP_figs.csv"))
@@ -286,3 +351,50 @@ y1$variable <- "Canopy Gap"
 x1 <- bind_rows(x1,y1)
 write.csv(x1,paste0(getwd(),"/Analysis/HANPP/Scaling.constants.csv"))
 
+#create figures of mortality
+tot_mort <-read_csv(paste0(getwd(),"/NPP/Dendrometers/census_demog_npp_all.csv"))
+plts<-read_csv(paste0(getwd(),"/plots.csv"))
+
+#identify forest and cocoa
+tot_mort$land_type <-"Cocoa"
+tot_mort$land_type[grep("FP",tot_mort$plot)]<-"Forest"
+tot_mort[,ncol(tot_mort)+1] <- plts[match(tot_mort$plot,plts$name3),"distance"]
+
+#take mean of growth and mortality
+tot_mort <- tot_mort %>% group_by(year,cocoa,plot) %>% filter(year!=2014) %>%
+  mutate(agC_new_tot=sum(as.numeric(agC_new),as.numeric(agC_new_s),na.rm=T),
+         agC_mort_tot = sum(agC_mort,agC_mort_s,na.rm=T))  %>% ungroup()
+
+tot_dist <- tot_mort %>% group_by(year,land_type,cocoa,distance) %>%
+  summarise(growth=mean(growth_agC,na.rm=T),growth_se=sd(growth_agC,na.rm=T)/length(growth_agC),
+            mortality=mean(agC_mort_tot,na.rm=T),mortality_se=sd(agC_mort_tot,na.rm=T)/length(growth_agC),
+            recruit=mean(agC_new_tot,na.rm=T),recruit_se=sd(agC_new_tot,na.rm=T)/length(growth_agC))
+tot_dist$cocoa<-factor(tot_dist$cocoa,levels=c("0","1"),labels=c("Shade Trees","Cocoa Trees"))
+forest <- data.frame(xmin=-5, xmax=50, ymin=-Inf, ymax=Inf)
+g1<-ggplot(tot_dist %>% filter(year==2015),aes(distance,growth,group=cocoa)) + geom_point(aes(color=factor(cocoa))) +
+  theme_classic() + geom_errorbar(aes(ymin=growth-growth_se,ymax=growth+growth_se,color=factor(cocoa))) + 
+  theme(legend.title = element_blank(),text=element_text(size=14)) + ggtitle("2015") +
+  ylab("Growth Increment\n[MgC ha-1 yr-1]") + xlab("Distance from Forest [m]") + geom_vline(xintercept=0,color="yellow",alpha=0.5)
+  
+g2<-ggplot(tot_dist %>% filter(year==2015),aes(distance,-mortality,group=cocoa)) + geom_point(aes(color=factor(cocoa))) +
+  theme_classic() + geom_errorbar(aes(ymin=-mortality-mortality_se,ymax=-mortality+mortality_se,color=factor(cocoa))) + 
+  theme(legend.title = element_blank(),text=element_text(size=14)) + ggtitle("2015") +
+  geom_point(aes(distance,recruit,color=factor(cocoa))) + geom_errorbar(aes(ymin=recruit-recruit_se,ymax=recruit+recruit_se,color=factor(cocoa))) +
+  ylab("Mortality & Recruitment\n[MgC ha-1 yr-1]") + xlab("Distance from Forest [m]") + geom_hline(yintercept=0,linetype="dashed")+ 
+  geom_vline(xintercept=0,color="yellow",alpha=0.5)
+
+g3<-ggplot(tot_dist %>% filter(year==2016),aes(distance,growth,group=cocoa)) + geom_point(aes(color=factor(cocoa))) +
+  theme_classic() + geom_errorbar(aes(ymin=growth-growth_se,ymax=growth+growth_se,color=factor(cocoa))) + 
+  theme(legend.title = element_blank(),text=element_text(size=14)) + ggtitle("2016") +
+  ylab("Growth Increment\n[MgC ha-1 yr-1]") + xlab("Distance from Forest [m]")+ 
+  geom_vline(xintercept=0,color="yellow",alpha=0.5)
+
+g4<-ggplot(tot_dist %>% filter(year==2016),aes(distance,-mortality,group=cocoa)) + geom_point(aes(color=factor(cocoa))) +
+  theme_classic() + geom_errorbar(aes(ymin=-mortality-mortality_se,ymax=-mortality+mortality_se,color=factor(cocoa))) + 
+  theme(legend.title = element_blank(),text=element_text(size=14)) + ggtitle("2016") +
+  geom_point(aes(distance,recruit,color=factor(cocoa))) + geom_errorbar(aes(ymin=recruit-recruit_se,ymax=recruit+recruit_se,color=factor(cocoa))) +
+  ylab("Mortality & Recruitment\n[MgC ha-1 yr-1]") + xlab("Distance from Forest [m]") + geom_hline(yintercept=0,linetype="dashed")+ 
+  geom_vline(xintercept=0,color="yellow",alpha=0.5)
+
+ggarrange(g1,g3,g2,g4,ncol=2,nrow=2,common.legend = T)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_mortality.pdf")
