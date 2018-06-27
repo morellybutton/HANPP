@@ -13,30 +13,32 @@ library(lubridate)
 library(gridExtra)
 #cut to separate years (year1=Oct-2014 to Oct-2015,year2=Oct-2015 to Oct 2016, year3=Oct-2016 to Oct 2017*) *still waiting census to complete
 to_geth <- list()
+stck<-list()
 #to_summ <- list()
 for(i in 1:length(plts)){
   #open files of all pools
-  npp.cwd <- read.csv(paste0(getwd(),"/NPP/CWD/CWD2_",gsub(" ","",plts[i]),"_out.csv"))
+  npp.cwd <- read.csv(paste0(getwd(),"/NPP/CWD/CWD2_",gsub(" ","",plts[i]),"_out.csv")) #stock is first line
   npp.dendro <- read.csv(paste0(getwd(),"/NPP/Dendrometers/census_npp_",gsub(" ","",plts[i]),".csv"))
   npp.roots <- read.csv(paste0(getwd(),"/NPP/Roots/RTS_",gsub(" ","",plts[i]),"_out.v2.csv"))
+  stck.roots <- read.csv(paste0(getwd(),"/NPP/Roots/RTS_",gsub(" ","",plts[i]),"_stock.csv"))
   npp.litter <- read.csv(paste0(getwd(),"/NPP/Litter Data/FLF_",gsub(" ","",plts[i]),"_output.csv"))
   npp.qflitter <- read.csv(paste0(getwd(),"/NPP/FineLitterFall/FLFQ_",gsub(" ","",plts[i]),"_output.csv"))
-  
+  #npp.qdcomp <- read.csv(paste0(getwd(),"/NPP/Total/DCMP_shade.v.cocoa.leaves.csv"))
   if(length(grep("FP",plts[i]))==0) { npp.yield<-read.csv(paste0(getwd(),"/NPP/Total/",gsub(" ","",plts[i]),"_NPPcocoapods.csv")); npp.yield$date <- as.Date(npp.yield$date) ;
   npp.yield <- npp.yield %>% group_by(plot,date) %>% summarise(TShell_MgCperha=sum(TShell_MgCperha,na.rm=T),TBean_MgCperha=sum(TBean_MgCperha,na.rm=T),TShell_MgCperhase=sum(TShell_MgCperhase,na.rm=T),
                                                                TBean_MgCperhase=sum(TBean_MgCperhase,na.rm=T),CocoaDensity=sum(no.trees,na.rm=T))
   } else npp.yield <- NA
   
-  
+
   #collect stock data
-  stck.qflitter<- npp.qflitter[1,]
-  npp.qflitter<-npp.qflitter[2:nrow(npp.qflitter),]
+  #stck.qflitter<- npp.qflitter[1,]
+  #npp.qflitter<-npp.qflitter[2:nrow(npp.qflitter),]
   
-  stck.litter<-npp.litter[7,]
-  npp.litter[7,4:18]<-NA
+  #stck.litter<-npp.litter[7,]
+  #npp.litter[7,4:18]<-NA
   
-  stck.roots<-npp.roots[1,]
-  npp.roots[1,2:8]<-NA
+  #stck.roots<-npp.roots[1,]
+  #npp.roots[1,2:8]<-NA
   
   stck.agb <- npp.dendro %>% group_by(cocoa,year) %>% mutate(total_agC=sum(total_agC,total_agC_s,na.rm=T)) %>% select(year,cocoa,total_agC) %>% ungroup() %>% 
     mutate(cocoa=replace(cocoa,cocoa==1,"cocoa")) %>% mutate(cocoa=replace(cocoa,cocoa==0,"shade")) %>% 
@@ -48,6 +50,12 @@ for(i in 1:length(plts)){
   npp.combo <- data_frame(year=npp.litter$Year, month= npp.litter$Month, totflfAs = npp.litter$totflfAs, totflfAsstd = npp.litter$totflfAsstd, seedsfAs = npp.litter$seedsfAs, seedsfAsstd = npp.litter$seedsfAsstd,
                           leafflfAs = npp.litter$leafflfAs, leafflfAsstd = npp.litter$leafflfAsstd, leafflfcAs = npp.litter$leafflfcAs, leafflfcAsstd = npp.litter$leafflfcAsstd, fruitflfAs = npp.litter$fruitflfAs,
                           fruitflfAsstd = npp.litter$fruitflfAsstd, flowerflfAs = npp.litter$flowerflfAs, flowerflfAsstd = npp.litter$flowerflfAsstd, branchflfAs = npp.litter$branchflfAs, branchflfAsstd = npp.litter$branchflfAsstd)
+  
+  #add roots
+  stck.roots$year<-2014
+  stck.roots<-stck.roots %>% rename(annual_root=annual,root_tover=t_over.months)
+  stck_all<-left_join(stck.roots,stck.agb,by=c("year"))
+  stck_all$plot_name<-gsub(" ","",plts[i])
   
   #create tibbles
   #npp.qflitter <- data_frame(year = year(npp.qflitter$dates), month = month(npp.qflitter$dates), totflfAs.grd = npp.qflitter$totflfAs.m, totflfAsstd.grd = npp.qflitter$totflfAsstd.m, seedsfAs.grd = npp.qflitter$seedsfAs.m, seedsfAsstd.grd = npp.qflitter$seedsfAsstd.m,
@@ -103,25 +111,26 @@ for(i in 1:length(plts)){
   write.csv(npp.combo,paste0(getwd(),"/NPP/Total/All.measures_",gsub(" ","",plts[i]),"_out.csv"))
   
   #calculate "average year"
-  npp_summ <- npp.combo %>% summarise(totflfAs=mean(totflfAs,na.rm=T),totflfAsstd=mean(totflfAsstd,na.rm=T),seedsfAs=mean(seedsfAs,na.rm=T),
-                                      seedsfAsstd=mean(seedsfAsstd,na.rm=T),leafflfAs=mean(leafflfAs,na.rm=T),leafflfAsstd=mean(leafflfAsstd,na.rm=T),
-                                      leafflfcAs=mean(leafflfcAs,na.rm=T),leafflfcAsstd=mean(leafflfcAsstd,na.rm=T),fruitflfAs=mean(fruitflfAs,na.rm=T),
-                                      fruitflfAsstd=mean(fruitflfAsstd,na.rm=T),flowerflfAs=mean(flowerflfAs,na.rm=T),flowerflfAsstd=mean(flowerflfAsstd,na.rm=T),
-                                      branchflfAs=mean(branchflfAs,na.rm=T),branchflfAsstd=mean(branchflfAsstd,na.rm=T),NPProot=mean(monthlyNPProot,na.rm=T),
-                                      NPProot.se=mean(monthlyNPProot.se,na.rm=T),stem.cocoa=mean(nppacw_monthly.cocoa,na.rm=T),
-                                      stem.shade=mean(nppacw_monthly.shade,na.rm=T),cwd=mean(NPPCWDac,na.rm=T),cwd.se=mean(NPPCWDac.se,na.rm=T),
-                                      TShell_MgCperha=mean(TShell_MgCperha,na.rm=T),TShell_MgCperhase=mean(TShell_MgCperhase,na.rm=T),TBean_MgCperha=mean(TBean_MgCperha,na.rm=T),
-                                      TBean_MgCperhase=mean(TBean_MgCperhase,na.rm=T),CocoaDensity=mean(CocoaDensity,na.rm=T))
+  npp_summ <- npp.combo %>% ungroup() %>%
+    summarise(totflfAs=mean(totflfAs,na.rm=T),totflfAsstd=mean(totflfAsstd,na.rm=T),seedsfAs=mean(seedsfAs,na.rm=T),
+    seedsfAsstd=mean(seedsfAsstd,na.rm=T),leafflfAs=mean(leafflfAs,na.rm=T),leafflfAsstd=mean(leafflfAsstd,na.rm=T),
+    leafflfcAs=mean(leafflfcAs,na.rm=T),leafflfcAsstd=mean(leafflfcAsstd,na.rm=T),fruitflfAs=mean(fruitflfAs,na.rm=T),
+    fruitflfAsstd=mean(fruitflfAsstd,na.rm=T),flowerflfAs=mean(flowerflfAs,na.rm=T),flowerflfAsstd=mean(flowerflfAsstd,na.rm=T),
+    branchflfAs=mean(branchflfAs,na.rm=T),branchflfAsstd=mean(branchflfAsstd,na.rm=T),NPProot=mean(monthlyNPProot,na.rm=T),
+    NPProot.se=mean(monthlyNPProot.se,na.rm=T),stem.cocoa=mean(nppacw_monthly.cocoa,na.rm=T),
+    stem.shade=mean(nppacw_monthly.shade,na.rm=T),cwd=mean(NPPCWDac,na.rm=T),cwd.se=mean(NPPCWDac.se,na.rm=T),
+    TShell_MgCperha=mean(TShell_MgCperha,na.rm=T),TShell_MgCperhase=mean(TShell_MgCperhase,na.rm=T),TBean_MgCperha=mean(TBean_MgCperha,na.rm=T),
+    TBean_MgCperhase=mean(TBean_MgCperhase,na.rm=T),CocoaDensity=mean(CocoaDensity,na.rm=T))
   npp_summ$plot <- gsub(" ","",plts[i])
   #to_summ[[i]]<-npp_sum
   npp.combo <- npp.combo %>% group_by(month,year) %>% mutate(reprod.shade=sum(seedsfAs,fruitflfAs,flowerflfAs,na.rm=T),reprod.shade.sd=sum(seedsfAsstd,fruitflfAsstd,flowerflfAsstd,na.rm=T),
                                                              reprod.cocoa=sum(TShell_MgCperha,TBean_MgCperha,na.rm=T),reprod.cocoa.sd=sum(TShell_MgCperhase,TBean_MgCperhase,na.rm=T))
     
-  #calculate annual totals for year 1 and year 2, multiply stem growth by 1.25 to account for coarse root growth, keep in woody component
+  #calculate annual totals for year 1 and year 2
   npp.total <- npp.combo %>% filter(group.date!="year3") %>% group_by(group.date) %>% summarise(reprod.shade=mean(reprod.shade,na.rm=T)*12,reprod.shade.sd=mean(reprod.shade.sd,na.rm=T)*12,canopy.shade=mean(leafflfAs,na.rm=T)*12,canopy.shade.sd=mean(leafflfAsstd,na.rm=T)*12,
                                                                                                 twigs=mean(branchflfAs,na.rm=T)*12,twigs.sd=mean(branchflfAsstd,na.rm=T)*12,canopy.cocoa=mean(leafflfcAs,na.rm=T)*12,canopy.cocoa.sd=mean(leafflfAsstd,na.rm=T)*12,branches=mean(NPPCWDac,na.rm=T)*12,
-                                                                                                branches.sd=mean(NPPCWDac.se,na.rm=T)*12,roots=mean(monthlyNPProot,na.rm=T)*12,roots.sd=mean(monthlyNPProot.se,na.rm=T)*12,wood.shade=mean(nppacw_monthly.shade,na.rm=T)*1.25*12,
-                                                                                                wood.cocoa=mean(nppacw_monthly.cocoa,na.rm=T)*1.25*12,reprod.cocoa=sum(reprod.cocoa,na.rm=T),reprod.cocoa.sd=sum(reprod.cocoa.sd,na.rm=T),cocoa.harv=sum(TBean_MgCperha,na.rm=T),
+                                                                                                branches.sd=mean(NPPCWDac.se,na.rm=T)*12,roots=mean(monthlyNPProot,na.rm=T)*12,roots.sd=mean(monthlyNPProot.se,na.rm=T)*12,wood.shade=mean(nppacw_monthly.shade,na.rm=T)*12,
+                                                                                                wood.cocoa=mean(nppacw_monthly.cocoa,na.rm=T)*12,reprod.cocoa=sum(reprod.cocoa,na.rm=T),reprod.cocoa.sd=sum(reprod.cocoa.sd,na.rm=T),cocoa.harv=sum(TBean_MgCperha,na.rm=T),
                                                                                                 cocoa.harv.sd=sum(TBean_MgCperhase,na.rm=T),reprod.shell=mean(TShell_MgCperha,na.rm=T),reprod.shell.sd=mean(TShell_MgCperhase,na.rm=T),cocoadensity=mean(CocoaDensity,na.rm=T)) %>% 
     mutate(prop.canopy.cocoa=canopy.cocoa/sum(canopy.cocoa,canopy.shade),prop.wood.cocoa=wood.cocoa/sum(wood.shade,wood.cocoa,na.rm=T)) 
   npp.total <- npp.total %>% mutate(prop.canopy.cocoa=replace(prop.canopy.cocoa,is.na(prop.canopy.cocoa),0),prop.wood.cocoa=replace(prop.wood.cocoa,is.na(prop.wood.cocoa),0)) %>% 
@@ -130,14 +139,14 @@ for(i in 1:length(plts)){
            branches.shade.sd=branches.sd*(1-prop.canopy.cocoa),branches.cocoa.sd=branches.sd*prop.canopy.cocoa)
   
   #do for inter-annual average
-  #calculate annual totals for year 1 and year 2, multiply stem growth by 1.25 to account for coarse root growth, keep in woody component
+  #calculate annual totals for year 1 and year 2
   npp_summ <- npp_summ %>% mutate(reprod.shade=sum(seedsfAs,fruitflfAs,flowerflfAs,na.rm=T),reprod.shade.sd=sum(seedsfAsstd,fruitflfAsstd,flowerflfAsstd,na.rm=T),
                                   reprod.cocoa=sum(TShell_MgCperha,TBean_MgCperha,na.rm=T),reprod.cocoa.sd=sum(TShell_MgCperhase,TBean_MgCperhase,na.rm=T))
     
   npp_total <- npp_summ %>% summarise(reprod.shade=reprod.shade*12,reprod.shade.sd=reprod.shade.sd*12,canopy.shade=leafflfAs*12,canopy.shade.sd=leafflfAsstd*12,
                                     twigs=branchflfAs*12,twigs.sd=branchflfAsstd*12,canopy.cocoa=leafflfcAs*12,canopy.cocoa.sd=leafflfAsstd*12,branches=cwd*12,
-                                    branches.sd=cwd.se*12,roots=NPProot*12,roots.sd=NPProot.se*12,wood.shade=stem.shade*1.25*12,
-                                    wood.cocoa=stem.cocoa*1.25*12,reprod.cocoa=reprod.cocoa*12,reprod.cocoa.sd=reprod.cocoa.sd*12,cocoa.harv=TBean_MgCperha*12,
+                                    branches.sd=cwd.se*12,roots=NPProot*12,roots.sd=NPProot.se*12,wood.shade=stem.shade*12,
+                                    wood.cocoa=stem.cocoa*12,reprod.cocoa=reprod.cocoa*12,reprod.cocoa.sd=reprod.cocoa.sd*12,cocoa.harv=TBean_MgCperha*12,
                                     cocoa.harv.sd=TBean_MgCperhase*12,reprod.shell=TShell_MgCperha*12,reprod.shell.sd=TShell_MgCperhase*12,cocoadensity=mean(CocoaDensity,na.rm=T)) %>% 
     mutate(prop.canopy.cocoa=canopy.cocoa/sum(canopy.cocoa,canopy.shade),prop.wood.cocoa=wood.cocoa/sum(wood.shade,wood.cocoa,na.rm=T)) 
   npp_total <- npp_total %>% mutate(prop.canopy.cocoa=replace(prop.canopy.cocoa,is.na(prop.canopy.cocoa),0),prop.wood.cocoa=replace(prop.wood.cocoa,is.na(prop.wood.cocoa),0)) %>% 
@@ -149,7 +158,6 @@ for(i in 1:length(plts)){
   
   #stck.agb <- stck.agb %>% filter(year!=2014) %>%  mutate(type=ifelse(cocoa==1,"cocoa_agC","shade_agC"),group.date=ifelse(year==2015,"year1","year2")) %>% select(-cocoa) %>% spread(key="type",value="total_agC")
   
-  
   stck.agb <- stck.agb %>% mutate(group.date="year1") %>% mutate(group.date=replace(group.date,year>2014,"year2"),group.date=replace(group.date,year>2015,"year3"))
   
   npp.total <- left_join(npp.total,stck.agb %>% select(group.date,cocoa_agC,shade_agC), by="group.date")
@@ -157,6 +165,11 @@ for(i in 1:length(plts)){
   
   npp.total <- bind_rows(npp.total,npp_total)
   to_geth[[i]]<-npp.total
+  stck[[i]]<-stck_all
 }
 all_plots<-do.call(rbind.data.frame,to_geth)
 write.csv(all_plots,paste0(getwd(),"/NPP/Total/Annual.measures_all.plots.csv"))
+
+all_stck<-do.call(rbind.data.frame,stck)
+
+write.csv(all_stck,paste0(getwd(),"/NPP/Total/Stock.measures_all.plots.csv"))
