@@ -2,12 +2,18 @@
 
 library(tidyverse)
 library(lubridate)
-#library(reshape)
 library(gridExtra)
 library(ggpubr)
 
+
 setwd("/Volumes/ELDS/ECOLIMITS/Ghana/Kakum/")
 #setwd("X:/Ghana/Kakum/NPP")
+
+plts<-read.csv("/Volumes/ELDS/ECOLIMITS/Ghana/Kakum/plots.csv")
+plts$plot_name<-gsub(" ","",plts$name3)
+man_ge<-read_csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.2014.csv"))
+man_ge <- man_ge %>% rename(plot_name=plot)
+
 #open soil carbon values
 soil <- read_csv(paste0(getwd(),"/Nutrients/Soils/Soil_nutrient_content.csv"))
 soil1 <- soil %>% rename(plot_name=name1,Soil=C.Mg.ha) %>% select(plot_name,Soil)
@@ -19,8 +25,8 @@ all_stck <- read_csv(paste0(getwd(),"/NPP/Total/Stock.measures_all.plots.csv"))
 
 #pull out year1 measures
 npp_annual<-all_plots %>% filter(group.date=="all.years") %>% group_by(plot_name) %>% 
-  mutate(canopy.shade3=sum(canopy.shade2,branches.shade,reprod.shade),canopy.shade.sd3=sum(canopy.shade.sd2,branches.shade.sd,reprod.shade.sd),
-         canopy.cocoa3=sum(canopy.cocoa2,branches.cocoa),canopy.cocoa.sd3=sum(canopy.cocoa.sd2,branches.cocoa.sd))
+  mutate(canopy.shade3=sum(canopy.shade2,branches.shade,reprod.shade),canopy.shade.sd3=sqrt(sum(canopy.shade.sd2^2,branches.shade.sd^2,reprod.shade.sd^2)),
+         canopy.cocoa3=sum(canopy.cocoa2,branches.cocoa),canopy.cocoa.sd3=sqrt(sum(canopy.cocoa.sd2^2,branches.cocoa.sd^2)))
 #plot BGC and AGC for all plots
 #calculate bgb using cairns et al (1997) bgb = exp(-1.0587 + 0.8836*ln(AGB))
 all_plots <- all_plots %>% mutate(shade_bgC=exp(-1.0587 +0.8836*log(shade_agC)),cocoa_bgC=exp(-1.0587 +0.8836*log(cocoa_agC)))
@@ -81,8 +87,8 @@ b_mass <- b_mass %>% mutate(Soil=replace(Soil,category=="cocoa",NA))
 b_mass <- left_join(b_mass,fine,by=c("plot_name","category"))
 b_mass$category<-factor(b_mass$category,levels=c("cocoa","shade"),labels=c("Cocoa Tree","Shade Tree"))
 b_mass$plot_type <- factor(b_mass$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3","HM100F3","HM500F2","HM500F3","KA500F3","KA1KF3", "HM5KF2"),
-                        labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Old Cocoa\n[5km]"))
-
+                        labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Timber/Cocoa\nFarm"))
+write_csv(b_mass,"/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/Carbon_stocks_all.plots.csv")
 #young cocoa < 10 years, medium cocoa < 20 years, old cocoa > 30 years
 
 ggplot(b_mass,aes(plot_type,agC,fill="Above-ground")) + facet_wrap(~category,ncol=1) +geom_bar(stat="identity",position="stack",width=.5) +   
@@ -94,13 +100,13 @@ ggplot(b_mass,aes(plot_type,agC,fill="Above-ground")) + facet_wrap(~category,nco
   geom_errorbar(aes(ymin=-fine_roots-fine_roots.se,ymax=-fine_roots+fine_roots.se),width=0.1) + geom_hline(yintercept=0)+
   #geom_bar(data=b_mass %>% filter(category=="Soil"),stat="identity",position="stack",aes(plot_type,-bgC,fill=category),width=.5) +
   xlab("") +  ylab(expression(paste("Above and Below Ground Carbon (Mg C ", ha^-1, ")", sep=""))) + scale_fill_grey() + theme_classic()+ 
-  theme(text = element_text(size=14),axis.text.x=element_text(angle = 45,hjust=1),axis.ticks = element_blank(),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  theme(text = element_text(size=13),axis.text.x=element_text(angle = 45,hjust=1),axis.ticks = element_blank(),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         legend.position="top",legend.title=element_blank(),strip.text.x = element_blank()) +
-  geom_text(aes(x=2.5,y=140,label=paste0(category)),size=5) +
+  geom_text(aes(x, y, label=lab), data=data.frame(x=2.5, y=140, lab=c("Cocoa Trees","Shade Trees"),
+                           category=c("Cocoa Tree","Shade Tree")), vjust=1,size=5)+
   coord_fixed(ratio=1/50)
 ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_fig2.pdf"),height=8,width=5)
 
-#changed wood increment for HM5KF2 to first year
 npp_annual <-left_join(npp_annual,coarse_npp,by="plot_name")
 npp_annual <-npp_annual %>% mutate(wood.shade2=wood.shade+shade.croots,wood.cocoa2=wood.cocoa+cocoa.croots)
 write_csv(npp_annual,"/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/Annual.measures_all.plots_final.csv")
@@ -117,7 +123,7 @@ h[is.na(h$npp),"npp"]<-0
 #H<-h
 h$category<-factor(h$category,levels=c("canopy.shade3","canopy.cocoa3","reprod.cocoa","wood.shade2","wood.cocoa2","roots.shade","roots.cocoa"),labels=c("Canopy (Shade)","Canopy (Cocoa)","Cocoa Pods","Woody (Shade)", "Woody (Cocoa)","Roots (Shade)","Roots (Cocoa)"))
 h$plot_type <- factor(h$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3","HM100F3","HM500F2","HM500F3","KA500F3","KA1KF3", "HM5KF2"),
-                      labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Old Cocoa\n[5km]"))
+                      labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Timber/Cocoa\nFarm"))
 h <- h %>% group_by(plot_name) %>% arrange(desc(category)) %>% mutate(npp.cumsum=cumsum(npp))
 
 h$component <- str_split_fixed(h$category," ",2)[,1]
@@ -142,7 +148,7 @@ g1<-ggplot(h %>% filter(category=="Cocoa"&plot_type!="Logged Forest"),aes(plot_t
   geom_errorbar(data=h %>% filter(component=="Cocoa Pods"&category=="Cocoa"&plot_type!="Intact Forest"&plot_type!="Logged Forest"),
                 aes(x=plot_type,ymin=npp.cocoa.cumsum-npp.sd,ymax=npp.cocoa.cumsum+npp.sd),width=0.1) +
   theme(axis.text.x=element_blank(),legend.position="top",axis.ticks = element_blank(),legend.title=element_blank(),
-       text = element_text(size=14))
+       text = element_text(size=13))
   
 g2<-ggplot(h %>% filter(category=="Shade"),aes(plot_type,npp,fill=component)) + geom_bar(stat="identity",width=.5) + 
   xlab("") + ylab(expression(paste("Total NPP (MgC ", ha^-1, yr^-1, ")", sep=""))) + theme_classic() + scale_fill_grey() +
@@ -151,7 +157,7 @@ g2<-ggplot(h %>% filter(category=="Shade"),aes(plot_type,npp,fill=component)) + 
   geom_errorbar(data=h %>% filter(component=="Canopy"&category=="Shade"),
                 aes(x=plot_type,ymin=npp.shade.cumsum-npp.sd,ymax=npp.shade.cumsum+npp.sd),width=0.1) +
   theme(axis.text.x=element_blank(),legend.position="none",axis.ticks = element_blank(),legend.title=element_blank(),
-        text = element_text(size=14))
+        text = element_text(size=13))
 
 h.tot <- h %>% group_by(plot_type,category) %>% summarise(npp=sum(npp,na.rm=T),npp.sd=sum(npp.sd,na.rm=T))
 h.tot$category <- factor(h.tot$category,levels=c("Shade","Cocoa"))
@@ -164,7 +170,7 @@ g3<-ggplot(h.tot,aes(plot_type,npp,fill=category))+geom_bar(stat="identity",widt
                 aes(x=plot_type,ymin=npp-npp.sd,ymax=npp+npp.sd),width=0.1) +
   geom_errorbar(data=h.tot %>% filter(category=="Shade"),aes(x=plot_type,ymin=npp.cumsum-npp.sd,ymax=npp.cumsum+npp.sd),width=0.1) +
   theme(axis.text.x=element_text(angle = 45,hjust=1),legend.position="top",axis.ticks = element_blank(),legend.title=element_blank(),
-        text = element_text(size=14))
+        text = element_text(size=13))
 
 ggarrange(g1,g2,g3,ncol=1,nrow=3)                                                                                                 
 ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_fig3.pdf"),height=10, width=5)
@@ -207,13 +213,14 @@ hanpp.luc$label_y<-paste0(signif(hanpp.luc$label_y,digits=2)," %")
 hanpp.luc[hanpp.luc$label_y=="0 %","label_y"]<-""
 
 hanpp.luc$category<-factor(hanpp.luc$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3","HM100F3","HM500F2","HM500F3","KA500F3","KA1KF3", "HM5KF2"),
-                           labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Old Cocoa\n[5km]"))
+                           labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Timber/Cocoa\nFarm"))
+
 #h1$NPPComponent<-ordered(levels=c("NPP Used","NPP Unused","NPP Background"))
 #h$NPPComponent<-factor(h$NPPComponent,labels=c("NPP Background","NPP Unused","NPP Used"))
 #H<-within(h,Category<-factor(Category,levels=names(sort(table(Category),decreasing=TRUE))))
 g1<-ggplot(hanpp.luc,aes(x=category,y=npp))+geom_bar(stat="identity",width=.3)+                          
   xlab("") + ylab(expression(paste("NPP(%)"))) + ylim(0,200)+scale_fill_grey() + 
-  theme_classic() + theme(text = element_text(size=14),legend.position="top"
+  theme_classic() + theme(text = element_text(size=13),legend.position="top"
                           ,legend.title=element_blank(),axis.text.x=element_text(angle = 45,hjust=1))+
   geom_hline(yintercept = 100,linetype="dashed",color="light grey")+geom_text(aes(y=npp.max2,label=label_y),vjust=-.5,size=6)+
   geom_errorbar(aes(x=category,ymin=npp.min2,ymax=npp.max2),width=0.1)+
@@ -225,10 +232,10 @@ ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP.luc_avg
 write.csv(hanpp.luc,paste0(getwd(),"/Analysis/HANPP/HANPP_LUC.avg.csv"))
 
 #calculate NPP used and unused, NPP Background
-hanpp <- npp_annual %>% group_by(plot_name) %>% mutate(npp.background=sum(canopy.shade3,canopy.cocoa3,roots.shade,roots.cocoa,wood.shade,wood.cocoa,na.rm=T),
-                                                       npp.background.sd=sum(canopy.shade.sd3,canopy.cocoa.sd3,roots.shade.sd,roots.cocoa.sd,na.rm=T),
+hanpp <- npp_annual %>% group_by(plot_name) %>% mutate(npp.background=sum(canopy.shade3,canopy.cocoa3,roots.shade,roots.cocoa,wood.shade2,wood.cocoa2,na.rm=T),
+                                                       npp.background.sd=sqrt(sum(canopy.shade.sd3^2,canopy.cocoa.sd3^2,roots.shade.sd^2,roots.cocoa.sd^2,na.rm=T)),
                                                        npp.used=cocoa.harv,npp.used.sd=cocoa.harv.sd,npp.unused=reprod.shell,npp.unused.sd=reprod.shell.sd) %>% 
-  mutate(npp.total=sum(npp.background,npp.used,npp.unused,na.rm=T),npp.total.sd=sum(npp.background.sd,npp.used.sd,npp.unused.sd,na.rm=T)) %>%
+  mutate(npp.total=sum(npp.background,npp.used,npp.unused,na.rm=T),npp.total.sd=sqrt(sum(npp.background.sd^2,npp.used.sd^2,npp.unused.sd^2,na.rm=T))) %>%
   select(plot_name,npp.background,npp.background.sd,npp.used,npp.used.sd,npp.unused,npp.unused.sd,npp.total,npp.total.sd)
 
 h <- hanpp %>% select(plot_name,npp.background,npp.used,npp.unused) %>% gather(key="category",value="npp",-plot_name)
@@ -238,11 +245,11 @@ h.sd <- h.sd %>% rename(npp.background=npp.background.sd,npp.used=npp.used.sd,np
 h<-left_join(h,h.sd,by=c("plot_name","category"))
 h$category<-factor(h$category,levels=c("npp.used","npp.unused","npp.background"),labels=c("NPP Used","NPP Unused","NPP Background"))
 h$plot_type<-factor(h$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3","HM100F3","HM500F2","HM500F3","KA500F3","KA1KF3", "HM5KF2"),
-                    labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Old Cocoa\n[5km]"))
+                    labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Timber/Cocoa\nFarm"))
 
 ggplot(h,aes(x=plot_type,y=npp,fill=category))+geom_bar(stat="identity",width=.5)+scale_fill_grey(start=0.8,end=0.2)+       
   xlab("") + ylab(expression(paste("NPP (MgC ", ha^-1, yr^-1, ")", sep=""))) + ylim(0,26) + 
-  theme_classic() + theme(text = element_text(size=14),legend.position="top"
+  theme_classic() + theme(text = element_text(size=13),legend.position="top"
                           ,legend.title=element_blank(),axis.text.x=element_text(angle = 45,hjust=1)) +
   geom_hline(yintercept = h$npp[h$plot_name=="HMFP"],linetype="dashed",color="light grey")
 ggsave(paste0(getwd(),"/Analysis/HANPP/HANPP_avg.pdf"),height=6, width=8)
@@ -255,9 +262,9 @@ hanpp <- hanpp %>% group_by(plot_name) %>% mutate(hanpp.harv=sum(npp.used,npp.un
 h <- hanpp %>% select(plot_name,hanpp.bkgrd.perc,hanpp.used.perc,hanpp.unused.perc) %>% gather(key="category",value="hanpp",-plot_name)
 h$category<-factor(h$category,levels=c("hanpp.used.perc","hanpp.unused.perc","hanpp.bkgrd.perc"),labels=c("NPP Used","NPP Unused","NPP Background"))
 h$plot_type<-factor(h$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3","HM100F3","HM500F2","HM500F3","KA500F3","KA1KF3", "HM5KF2"),
-                    labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Old Cocoa\n[5km]"))
+                    labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Timber/Cocoa\nFarm"))
 hanpp$plot_type<-factor(hanpp$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3","HM100F3","HM500F2","HM500F3","KA500F3","KA1KF3", "HM5KF2"),
-                        labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Old Cocoa\n[5km]"))
+                        labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Timber/Cocoa\nFarm"))
 hlab<-hanpp %>% mutate(hanpp.all=npp.total/hanpp$npp.total[hanpp$plot_name=="HMFP"]*100) %>% select(plot_type,hanpp.harv.perc,hanpp.all)
 hlab[abs(hlab$hanpp.harv.perc)<0.1,"hanpp.harv.perc"]<-0
 hlab$label_y<-paste0(signif(hlab$hanpp.harv.perc,digits=2)," %")
@@ -265,7 +272,7 @@ hlab[hlab$label_y=="0 %","label_y"]<-""
 
 g2<-ggplot(h,aes(x=plot_type,y=hanpp,fill=category))+geom_bar(stat="identity",width=.3)+scale_fill_grey(start=0.8,end=0.2)+       
   xlab("") + ylab(expression(paste("NPP(%)"))) + ylim(0,200) + 
-  theme_classic() + theme(text = element_text(size=14),legend.position="top"
+  theme_classic() + theme(text = element_text(size=13),legend.position="top"
                           ,legend.title=element_blank(),axis.text.x=element_text(angle = 45,hjust=1)) +
   annotate("text",x=2.0,y=175,label="HANPP[TOT]",parse = TRUE,size=8)+annotate("text",x=3.5,y=175,label=" =",size=8)+
   annotate("text",y=hlab$hanpp.all,x=hlab$plot_type,label=hlab$label_y,vjust=-.5,size=6)+
@@ -274,45 +281,76 @@ ggsave(paste0(getwd(),"/Analysis/HANPP/HANPP.perc_avg.pdf"),g2,height=6, width=8
 
 g3<-grid.arrange(g1,g2,ncol=1)
 ggsave(paste0(getwd(),"/Analysis/HANPP/HANPP.comp_avg.pdf"),g3,height=10, width=8)
-ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_fig5.pdf",g3,height=10, width=7)
-write.csv(hanpp,paste0(getwd(),"/Analysis/HANPP/HANPP_perc.avg.csv"))
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_combo.pdf",g3,height=10, width=7)
 
 #do again with actual HANPP values
-hanpp <- hanpp %>% group_by(plot_name) %>% mutate(hanpp.luc=hanpp$npp.total[hanpp$plot_name=="HMFP"]-npp.total,hanpp.tot=hanpp$npp.total[hanpp$plot_name=="HMFP"]-npp.background,hanpp.tot.2=npp.total-npp.background) %>%
-  mutate(hanpp.tot.2=replace(hanpp.tot.2,hanpp.luc>0,0))
-hlab2<-hanpp %>% select(plot_type,npp.total,hanpp.luc,hanpp.tot,hanpp.tot.2)
+hanpp <- hanpp %>% group_by(plot_name) %>% mutate(hanpp.luc=hanpp$npp.total[hanpp$plot_name=="HMFP"]-npp.total,hanpp.tot.bckgrd=hanpp$npp.total[hanpp$plot_name=="HMFP"]-npp.background) %>%
+  mutate(hanpp.tot=sum(hanpp.luc,hanpp.harv,na.rm=T))# %>% mutate(hanpp.tot=replace(hanpp.tot,hanpp.tot<0,hanpp.harv[hanpp.tot<0]))
+hlab2<-hanpp %>% select(plot_type,npp.total,hanpp.luc,hanpp.tot,hanpp.tot.bckgrd,hanpp.harv)
 hlab2$label_y<-paste0(signif(hlab2$hanpp.luc,digits=2))
 hlab2[hlab2$plot_name=="KAFP"|hlab2$plot_name=="HMFP","label_y"]<-""
 
 g1<-ggplot(hanpp,aes(x=plot_type,y=npp.total))+geom_bar(stat="identity",width=.5)+                          
-  xlab("") + ylab(expression(paste("NPP [MgC ha-1 yr-1]"))) + ylim(0,30)+scale_fill_grey() + 
-  theme_classic() + theme(text = element_text(size=14),legend.position="top"
+  xlab("") + ylab(expression(paste("HANPP [MgC ha-1 yr-1]"))) + ylim(0,30)+scale_fill_grey() + 
+  theme_classic() + theme(text = element_text(size=13),legend.position="top"
                           ,legend.title=element_blank(),axis.text.x=element_text(angle = 45,hjust=1))+
   geom_hline(yintercept = hanpp$npp.total[hanpp$plot_name=="HMFP"],linetype="dashed",color="light grey")+
-  geom_text(data=hlab2,aes(y=npp.total,label=label_y),vjust=-.5,size=5)+coord_fixed(0.18) +
+  geom_text(data=hlab2,aes(y=npp.total,label=label_y),vjust=-.5,size=4)+coord_fixed(0.18) +
   #geom_errorbar(aes(x=category,ymin=npp.min2,ymax=npp.max2),width=0.1)+
   annotate("text",x=2.0,y=29,label="HANPP[LUC]",parse = TRUE,size=6)+annotate("text",x=3.5,y=29,label=" =",size=6)
 
 h <- hanpp %>% select(plot_name,npp.background,npp.used,npp.unused) %>% gather(key="category",value="hanpp",-plot_name)
 h$category<-factor(h$category,levels=c("npp.used","npp.unused","npp.background"),labels=c("NPP Used","NPP Unused","NPP Background"))
 h$plot_type<-factor(h$plot_name,levels = c( "HMFP","KAFP","KA100F1","KA100F3","HM100F3","HM500F2","HM500F3","KA500F3","KA1KF3", "HM5KF2"),
-                    labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Old Cocoa\n[5km]"))
+                    labels=c("Intact Forest","Logged Forest","Young Cocoa\n[100m]","Medium Cocoa\n[100m]","Old Cocoa\n[100m]","Young Cocoa\n[500m]","Medium Cocoa\n[500m]","Old Cocoa\n[500m]","Old Cocoa\n[1km]","Timber/Cocoa\nFarm"))
 
-hlab2$label_y2[hlab2$hanpp.luc<0]<-paste0(signif(hlab2$hanpp.tot[hlab2$hanpp.luc<0],digits=2)," [",signif(hlab2$hanpp.tot.2[hlab2$hanpp.luc<0],digits=2),"]")
-hlab2$label_y2[hlab2$hanpp.luc>0]<-paste0(signif(hlab2$hanpp.tot[hlab2$hanpp.luc>0],digits=2))
+#hlab2$label_y2[hlab2$hanpp.luc<0]<-paste0(signif(hlab2$hanpp.tot.bckgrd[hlab2$hanpp.luc<0],digits=2)," [",signif(hlab2$hanpp.tot[hlab2$hanpp.luc<0],digits=2),"]")
+hlab2$label_y2<-paste0(signif(hlab2$hanpp.tot,digits=2),"[",signif(hlab2$hanpp.harv,digits=2),"]")
+#hlab2$label_y2[hlab2$hanpp.luc>0]<-paste0(signif(hlab2$hanpp.tot[hlab2$hanpp.luc>0],digits=2))
 hlab2[hlab2$plot_name=="HMFP","label_y2"]<-""
 hlab2[hlab2$plot_name=="KAFP","label_y2"]<-""
 
 g2<-ggplot(h,aes(x=plot_type,y=hanpp,fill=category))+geom_bar(stat="identity",width=.5)+scale_fill_grey(start=0.8,end=0.2)+       
-  xlab("") + ylab(expression(paste("NPP [MgC ha-1 yr-1]"))) + ylim(0,30) + 
+  xlab("") + ylab(expression(paste("HANPP [MgC ha-1 yr-1]"))) + ylim(0,30) + 
   theme_classic() + theme(text = element_text(size=14),legend.position="top",legend.title=element_blank(),axis.text.x=element_blank()) +
   annotate("text",x=2.0,y=29,label="HANPP[TOT]",parse = TRUE,size=6)+annotate("text",x=3.5,y=29,label=" =",size=6)+
-  annotate("text",y=hlab2$npp.total,x=hlab$plot_type,label=hlab2$label_y2,vjust=-.5,size=5) +coord_fixed(1/5)+
+  annotate("text",y=hlab2$npp.total,x=hlab$plot_type,label=hlab2$label_y2,size=4,vjust=-0.5) +coord_fixed(1/5)+
   geom_hline(yintercept = hanpp$npp.total[hanpp$plot_name=="HMFP"],linetype="dashed",color="light grey")
 
 g3<-grid.arrange(g2,g1,ncol=1)
 ###need to change calculation for HM5KF2 to be subtracting LUC from harvest
-ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP.combo.pdf",g3,height=10, width=7.5)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_fig5.pdf",g3,height=10, width=7.5)
+write.csv(hanpp,paste0(getwd(),"/Analysis/HANPP/HANPP_perc.avg.csv"))
+
+#compare hanpp.luc across cocoa farms, remove timber/cocoa farm
+hanpp<-left_join(hanpp,plts %>% select(plot_name,distance,age),by="plot_name")
+hanpp<-hanpp %>% group_by(plot_name) %>% mutate(distance=replace(distance,distance>=5000,NA))
+
+hanpp$land_cover<-"Cocoa Farm"
+hanpp$age2<-"old"
+hanpp <- hanpp %>% mutate(land_cover=replace(land_cover,plot_name=="HMFP"|plot_name=="KAFP","Forest")) %>%
+  mutate(age2=replace(age2,age<10,"young")) %>% mutate(age2=replace(age2,age>=10&age<20,"medium")) %>% 
+  mutate(age2=replace(age2,plot_name=="HMFP"|plot_name=="KAFP",NA)) %>% mutate(age2=replace(age2,plot_name=="HM5KF2",NA))
+hanpp <-left_join(hanpp,man_ge %>% filter(tree_size=="all") %>% select(plot_name,Fertiliser,Fertliser.bin,Canopy.gap.dry),by="plot_name")
+
+res.aov<-aov(hanpp.luc~factor(age2),data=hanpp)
+summary(res.aov)
+
+res.aov<-aov(hanpp.luc~factor(distance),data=hanpp)
+summary(res.aov)
+
+res.aov<-aov(hanpp.luc~factor(Fertliser.bin),data=hanpp)
+summary(res.aov)
+
+res.aov<-aov(hanpp.luc~Canopy.gap.dry,data=hanpp)
+summary(res.aov)
+
+#take average HANPP value
+hanpp_sum <- hanpp %>% filter(plot_name!="HMFP"&plot_name!="KAFP") %>% pull(hanpp.tot) %>% mean()
+hanpp_sum.se <- hanpp %>% filter(plot_name!="HMFP"&plot_name!="KAFP") %>% pull(hanpp.tot) %>% sd()/sqrt(8)
+
+#HANPP use efficiency
+hanpp <- hanpp %>% mutate(hanpp.ue=npp.used/hanpp.tot)
 
 #HANPP figure from Haberl
 h<-read_csv(paste0(getwd(),"/NPP/HANPP_figs.csv"))
@@ -403,8 +441,8 @@ d.f$npp.mod<-coefs[1]+coefs[2]*d.f$z.TAgC1+coefs[3]*d.f$z.CanopyGap
 
 g1<-ggplot(d.f,aes(npp.background,npp.mod))+geom_point()+geom_abline(slope=1,intercept=0,linetype="dashed")+xlim(0,25)+ylim(0,25)+
   xlab("Measured NPP [Mg ha-1 yr-1]")+ylab("Modelled NPP [Mg ha-1 yr-1]")+
-  geom_text(size=3,aes(15,25,label=paste0("NPP = ",signif(coefs[1],digits=3)," + ",signif(coefs[2],digits=2),"*TAGC - ",abs(signif(coefs[3],digits=3)),"*Canopy Gap")))+
-  geom_text(size=3,aes(15,23,label=fancy_label),parse=TRUE)+theme_classic()+coord_fixed(ratio=1)
+  annotate("text",10,22,label=paste("italic(NPP)== ",signif(coefs[1],digits=3)," + ",signif(coefs[2],digits=2),"*italic(TAGC) - ",abs(signif(coefs[3],digits=3)),"*italic(CanopyGap)"),size=4,parse=T)+
+  annotate("text",size=4,20,4,label=fancy_label,parse=TRUE)+theme_classic()+coord_fixed(ratio=1)
 
 d.f <- d.f %>% group_by(plot_name) %>% mutate(hanpp.Mg=d.f$npp.total[d.f$plot_name=="HMFP"]-npp.background)
 
@@ -423,9 +461,13 @@ d.f$hanpp.Mg.mod<-coefs.3[1]+coefs.3[2]*d.f$z.TotCocoaDensity+coefs.3[3]*d.f$z.N
 
 g3<-ggplot(d.f,aes(hanpp.Mg,hanpp.Mg.mod))+geom_point()+geom_abline(slope=1,intercept=0,linetype="dashed")+
   xlab("Measured HANPP [Mg ha-1 yr-1]")+ylab("Modelled HANPP [Mg ha-1 yr-1]") +xlim(-6,10)+ylim(-6,10)+
-  geom_text(size=3,aes(1,9,label=paste0("HANPP = ",signif(coefs.3[1],digits=3)," - ",abs(signif(coefs.3[3],digits=2)),"*Cocoa Density - ",abs(signif(coefs.3[2],digits=3)),"*No Shade Trees")))+
-  geom_text(size=3,aes(1,8,label=fancy_label.3),parse=TRUE)+
+  #annotate("text",9,1,label=paste("italic(HANPP)== ",signif(coefs.3[1],digits=3)," - ",abs(signif(coefs.3[3],digits=2)),"*italic(ShadeTreeDensity) - ",abs(signif(coefs.3[2],digits=3)),"*italic(Cocoa Density)"),size=5,parse=T)+
+  annotate("text",3,8,label=paste("italic(HANPP)== ",signif(coefs.3[1],digits=3)," - ",abs(signif(coefs.3[3],digits=2)),"*italic(ShadeDensity) - ",abs(signif(coefs.3[2],digits=3)),"*italic(CocoaDensity)"),size=4,parse=T)+
+  annotate("text",size=4,8,-4,label=fancy_label.3,parse=TRUE)+
   theme_classic()+coord_fixed(ratio=1)
+
+ggarrange(g1,g3,ncol=2,nrow=1)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/HANPP_SFig1.pdf")
 
 #identify variables driving HANPP
 (fm02<-lm(hanpp.all~z.NoShadeTrees+z.TotCocoaDensity,data=d.f[grep("FP",d.f$plot_name,invert=T),]))
@@ -474,8 +516,6 @@ df <- df %>% mutate(hanpp.perc=replace(hanpp.perc,!is.na(hanpp.all),hanpp.all[!i
                                        hanpp.Mg.x=replace(hanpp.Mg.x,!is.na(hanpp.Mg.y),hanpp.Mg.y[!is.na(hanpp.Mg.y)])) %>%
   rename(hanpp.Mg=hanpp.Mg.x) %>% select(-hanpp.Mg.y,-hanpp.all)
 write_csv(df,paste0(getwd(),"/NPP/Total/plot_hanpp_calcs.csv"))
-
-
 
 #create figures of mortality/demography
 tot_mort <-read_csv(paste0(getwd(),"/NPP/Dendrometers/census_demog_npp_all.csv"))
