@@ -76,6 +76,9 @@ npp.comp.s[grep("FP",npp.comp.s$Plot),"Type"] <-"Forest"
 write.csv(npp.comp.c,paste0(getwd(),"/NPP.component.cocoa.csv"))
 write.csv(npp.comp.s,paste0(getwd(),"/NPP.component.shade.csv"))
 
+npp_cocoa<-read_csv(paste0(getwd(),"/NPP.component.cocoa.csv"))
+npp_shade<-read_csv(paste0(getwd(),"/NPP.component.shade.csv"))
+
 ggtern(data=npp.comp.s,aes(Canopy,Roots,Wood, color=Type))+theme_rgbw()+ggtitle("Partitioning for Shade Trees")+
   geom_point()+theme(legend.key = element_rect(colour = "white", fill = NA),legend.position="none")+geom_text(aes(label=Plot),hjust=0, vjust=0,size=2)+
   scale_colour_manual(name="Plot Type",values = c("Cocoa"="black", "Forest"="darkgrey"))
