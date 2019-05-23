@@ -572,12 +572,12 @@ h.alloc<-read_csv("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/HANPP/Su
 alloc<-spread(h.alloc %>% select(plot_type,plot_name,`Farm Type`,Continent,component,total.npp),key=component,value=total.npp)
 alloc<-left_join(alloc,b_mass1 %>% filter(category=="Shade Tree") %>% select(plot_name,distance,age2,Tot_C,land_cover,Fertliser.bin),by="plot_name")
 alloc<-alloc %>% mutate(land_cover=replace(land_cover,is.na(land_cover),`Farm Type`[is.na(land_cover)])) %>% 
-  mutate(land_cover=replace(land_cover,land_cover=="Cocoa Farm","AgroForest Cocoa"),land_cover=replace(land_cover,plot_name=="HM5KF2","Timber/Cocoa"),land_cover=replace(land_cover,plot_name=="KAFP","Logged Forest"))
+  mutate(land_cover=replace(land_cover,land_cover=="Cocoa Farm","AgroForest Cocoa"),land_cover=replace(land_cover,plot_name=="HM5KF2","Cocoa/Timber"),land_cover=replace(land_cover,plot_name=="KAFP","Logged Forest"))
 
 alloc<-alloc %>% mutate(land_cover=replace(land_cover,land_cover=="Shaded Cocoa","AgroForest Cocoa")) %>% 
   group_by(plot_type) %>% mutate(Canopy2=Canopy) %>% mutate(Canopy=sum(Pods,Canopy2,na.rm=T)) %>% ungroup()
 alloc$age2<-factor(alloc$age2,levels=c("young","medium","old"),labels=c("Young","Medium","Old"),ordered=T)
-
+alloc$land_cover=factor(alloc$land_cover,levels=c("AgroForest Cocoa","Cocoa Monoculture","Forest","Logged Forest", "Cocoa/Timber"),ordered=T)
 
 library(ggtern)
 
